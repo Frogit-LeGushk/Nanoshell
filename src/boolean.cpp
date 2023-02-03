@@ -1,4 +1,4 @@
-#include "boolean.hpp"
+#include "../inc/boolean.hpp"
 
 #include <sys/types.h>
 #include <unistd.h>

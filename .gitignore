@@ -1,4 +1,4 @@
-*.o
+./src/*.o
 *.out
 *.so
 main

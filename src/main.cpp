@@ -1,6 +1,6 @@
 #include <iostream>
 #include <sstream>
-#include "shell.hpp"
+#include "../inc/shell.hpp"
 
 int main(void)
 {

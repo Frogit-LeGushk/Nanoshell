@@ -1,4 +1,4 @@
-#include "ppipe.hpp"
+#include "../inc/ppipe.hpp"
 
 #include <sys/types.h>
 #include <unistd.h>

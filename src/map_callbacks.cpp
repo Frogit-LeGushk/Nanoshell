@@ -1,4 +1,4 @@
-#include "process.hpp"
+#include "../inc/process.hpp"
 
 #include <iostream>
 #include <assert.h>

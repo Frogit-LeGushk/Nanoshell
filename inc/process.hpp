@@ -56,7 +56,7 @@ private:
 
     static constexpr const char * notFoundSym       = "notFound";
     static constexpr const char * fileSharedLib     = "./map_callbacks.so";
-    static constexpr const char * fileSymSharedLib  = "map_callbacks.txt";
+    static constexpr const char * fileSymSharedLib  = "./map_callbacks.txt";
     static constexpr const int  STACK_SIZE_         = 2 * 1024 * 1024; // = 2 MiB
 
     void Process_       (void) noexcept;

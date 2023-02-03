@@ -1,4 +1,4 @@
-#include "analyze.hpp"
+#include "../inc/analyze.hpp"
 #include <regex>
 
 using namespace analyze;

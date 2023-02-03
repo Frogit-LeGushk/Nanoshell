@@ -1,14 +1,25 @@
 CC=g++
-CFLAGS=-Wall -Wextra -Wswitch-enum -pedantic -pg -ggdb -std=gnu++17
+
+CFLAFS_DEBUG=-g3 -O1 -pg -ggdb
+CFLAFS_RELEASE=-g0 -O3
+CFLAGS=-Wall -Wextra -Wswitch-enum -pedantic -std=gnu++17
 LFLAGS=-pthread -ldl
-SRCLIB=map_callbacks.cpp
-OBJLIB=$(SRCLIB:.cpp=.so)
-SRC=main.cpp process.cpp ppipe.cpp boolean.cpp shell.cpp single.cpp analyze.cpp
-INC=process.hpp ppipe.hpp boolean.hpp shell.hpp single.hpp analyze.hpp
+
+SRCLIB=./src/map_callbacks.cpp
+OBJLIB=map_callbacks.so
+
+SRC=./src/main.cpp ./src/process.cpp ./src/ppipe.cpp ./src/boolean.cpp ./src/shell.cpp ./src/single.cpp ./src/analyze.cpp
+INC=./inc/process.hpp ./inc/ppipe.hpp ./inc/boolean.hpp ./inc/shell.hpp ./inc/single.hpp ./inc/analyze.hpp
 OBJ=$(SRC:.cpp=.o)
 
-target: $(SRC) $(INC)
-	$(CC) $(CFLAGS) -shared -fPIC -o $(OBJLIB) $(SRCLIB)
+
+release: $(SRC) $(INC)
+	$(CC) $(CFLAGS) $(CFLAFS_RELEASE) -shared -fPIC -o $(OBJLIB) $(SRCLIB)
 	./update_symbols.sh
-	$(CC) $(CFLAGS) -o main $(SRC) $(LFLAGS)
-	#./main
+	$(CC) $(CFLAGS) $(CFLAFS_RELEASE) -o nanoshell $(SRC) $(LFLAGS)
+
+debug: $(SRC) $(INC)
+	$(CC) $(CFLAGS) $(CFLAFS_DEBUG) -shared -fPIC -o $(OBJLIB) $(SRCLIB)
+	./update_symbols.sh
+	$(CC) $(CFLAGS) $(CFLAFS_DEBUG) -o nanoshell $(SRC) $(LFLAGS)
+
