@@ -1,9 +1,4 @@
 #pragma once
-
-#include <vector>
-#include <string>
-#include <signal.h>
-
 #include "process.hpp"
 
 namespace boolean {
@@ -13,56 +8,39 @@ class Boolean
     using argv_t    = ::process::Process::argv_t;
     using Process   = ::process::Process;
     using EKill     = ::process::Process::EKill;
-    static constexpr const int successStatus = 0;
-    static constexpr const int failureStatus = 1;
+    static constexpr const int successStatus = ::process::Process::successStatus;
+    static constexpr const int failureStatus = ::process::Process::failureStatus;
 
 public:
-    enum class EOper : uint8_t
-    {
-        AND, OR
-    };
+    enum class EOper : uint8_t { AND, OR };
 
     Boolean(argv_t const& argv1, argv_t const& argv2,
-            EOper oper, bool isForeground = true) noexcept;
+            bool isForeground = true, EOper oper = EOper::AND) noexcept;
     ~Boolean(void) noexcept;
 
-    bool isDone     (bool isAsynk = true)   const noexcept;
-    bool isSuccess  (void)                  const noexcept;
-    void KILL       (EKill sig)             const noexcept;
+    int                     getPid(void)                const noexcept;
+    std::pair<int,int>      getPairPid(void)            const noexcept;
+    void KILL               (EKill sig = EKill::INT)    const noexcept;
+    bool isDone             (bool isAsynk = true,
+                             int * pwstatus = nullptr)  noexcept;
+    bool isSuccess          (void)                      noexcept;
+    std::pair<bool,bool>    isTermBySig(void)           noexcept;
 
 private:
-    bool isNeedSecondProcess_   (int status)    const noexcept;
-    bool tryProcessForeground_  (int pid)       const noexcept;
-    void createSecondProcess    (void)          const noexcept;
+    bool isNeedSecondProcess_   (int status)const noexcept;
+    void createSecondProcess_   (void)      noexcept;
 
-struct raiiSigProcMask
-{
-    explicit raiiSigProcMask(Boolean const& boolean) noexcept : boolean_(boolean)
-        { sigprocmask(SIG_BLOCK, &boolean_.sigset_, NULL); }
-    ~raiiSigProcMask(void) noexcept
-        { sigprocmask(SIG_UNBLOCK, &boolean_.sigset_, NULL); }
-
-    static void initProcMask(Boolean& boolean) noexcept
-    {
-        sigemptyset(&boolean.sigset_);
-        sigaddset(&boolean.sigset_, SIGTTIN);
-        sigaddset(&boolean.sigset_, SIGTTOU);
-    }
 private:
-    Boolean const& boolean_;
-};
-
-public:
-    mutable argv_t  argv2_;
-    const   EOper   oper_;
+    argv_t          argv2_;
     const   bool    isForeground_;
+    const   EOper   oper_;
     const   int     termPid_;
-
-    Process * process1_         = nullptr;
-    mutable Process * process2_ = nullptr;
-    mutable bool isDone_        = false;
-    sigset_t sigset_;
+    Process * process1_ = nullptr;
+    Process * process2_ = nullptr;
+    bool isDone_        = false;
 };
+
+std::pair<Boolean *,bool> make_boolean(std::string const& cmdLine);
 
 } // namespace boolean
 

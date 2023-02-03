@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -17,9 +18,12 @@ struct Process
     static constexpr const stdfds_t defStdFds   = {-1, -1, -1};
     static constexpr const clsfds_t defClsFds   = {-1, -1, -1};
 
+    static constexpr const int successStatus = 0;
+    static constexpr const int failureStatus = 1;
+
     enum class EKill : uint8_t
     {
-        HUP, INT, QUIT, TSTP, TTIN, TTOU, TERM
+        HUP, INT, QUIT, TSTP, TTIN, TTOU, TERM, CONT
     };
 
     explicit Process(argv_t const& argv,
@@ -37,11 +41,13 @@ struct Process
     ~Process() noexcept;
 
     int             getPid              (void)                  const noexcept;
-    bool            isDone              (bool isAsynk = true)   noexcept;
-    bool            isTermBySig         (void)                  const noexcept;
-    int             join                (void)                  noexcept;
-    void            KILL                (EKill sig)             const noexcept;
+    void            KILL                (EKill sig = EKill::INT)const noexcept;
     argv_t const&   getArgv             (void)                  const noexcept;
+    bool            isDone              (bool isAsynk = true,
+                                         int * pwstatus = nullptr) noexcept;
+    bool            isSuccess           (void)                  noexcept;
+    bool            isTermBySig         (void)                  noexcept;
+    int             join                (void)                  noexcept;
 
 private:
     using signature_t       = int(Process::argv_t const&);
@@ -86,16 +92,20 @@ private:
     };
 
 private:
-    argv_t argv_;
-    stdfds_t stdfds_= defStdFds;
-    clsfds_t clsfds_= defClsFds;
+    const argv_t argv_;
+    const stdfds_t stdfds_= defStdFds;
+    const clsfds_t clsfds_= defClsFds;
     int pid_        = -1;
     int status_     = -1;
-    bool isDone_    = false;
+    bool isDone_      = false;
     bool isTermBySig_ = false;
     char * STACK_   = nullptr;
 };
 
-Process * make_process(std::string const& cmdLine);
+inline void PRINT_ERR(std::string const& msg) noexcept
+{
+    std::cerr << msg << " in file " <<
+    __FILE__ << ":" << __func__ << ":" << __LINE__ << std::endl;
+}
 
 } // namespace process

@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <functional>
 
@@ -15,9 +16,9 @@
 #include <dlfcn.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <errno.h>
 
 using namespace process;
-
 
 /// Below public interface implementation
 
@@ -25,6 +26,7 @@ Process::Process(argv_t const& argv, stdfds_t const& stdFds, clsfds_t const& cls
     : argv_(argv), stdfds_(stdFds), clsfds_(clsFds)
 {
     Process_();
+    while (pid_ == -1);
 }
 
 Process::Process(argv_t && argv, stdfds_t const& stdFds, clsfds_t const& clsFds) noexcept
@@ -46,16 +48,22 @@ int Process::getPid(void) const noexcept
     return pid_;
 }
 
-bool Process::isDone(bool isAsynk) noexcept
+bool Process::isDone(bool isAsynk, int * pwstatus) noexcept
 {
     if (isDone_)
         return true;
 
     int wstatus = 0;
-    int wret = 0;
+    int wret = waitpid(pid_, &wstatus, (isAsynk ? WNOHANG : 0) | WUNTRACED | WCONTINUED);
 
-    if ((wret = waitpid(pid_, &wstatus, isAsynk ? WNOHANG : 0)) == -1)
+    if (pwstatus)
+        *pwstatus = wstatus;
+
+    if (wret == -1)
     {
+        if (errno == EINTR)
+            return false;
+
         perror("waitpid");
         exit(EXIT_FAILURE);
     }
@@ -76,8 +84,15 @@ bool Process::isDone(bool isAsynk) noexcept
     return isDone_;
 }
 
-bool Process::isTermBySig(void) const noexcept
+bool Process::isSuccess(void) noexcept
 {
+    join(); // wait
+    return status_ == Process::successStatus;
+}
+
+bool Process::isTermBySig(void) noexcept
+{
+    join(); // wait
     return isTermBySig_;
 }
 
@@ -124,6 +139,7 @@ void Process::KILL(EKill sig) const noexcept
     case Process::EKill::TTIN:  signal = SIGTTIN;   break;
     case Process::EKill::TTOU:  signal = SIGTTOU;   break;
     case Process::EKill::TERM:  signal = SIGTERM;   break;
+    case Process::EKill::CONT:  signal = SIGCONT;   break;
     }
 
     if (kill(pid_, signal) == -1)
@@ -158,7 +174,7 @@ void Process::Process_(void) noexcept
     if (Process::mapCallbacks_() == nullptr)
         Process::initMapCallbacks_();
 
-    const std::string name = argv_[0];
+    const auto& name = argv_[0];
 
     if (Process::checkSymMapCallbacks_(name))
         ProcessClone_();
@@ -174,10 +190,20 @@ void Process::ProcessClone_(void) noexcept
         ? &mapCallbacks[name]
         : &mapCallbacks[Process::notFoundSym];
 
-    STACK_          = new char [STACK_SIZE_];
-    void * arg      = new routineArg_(this, callback);
-    const int FLAFS = CLONE_FS | SIGCHLD;
+    routineArg_ * arg = nullptr;
 
+    try
+    {
+        STACK_  = new char [STACK_SIZE_];
+        arg     = new routineArg_(this, callback);
+    }
+    catch (std::bad_alloc const& err)
+    {
+        PRINT_ERR(err.what());
+        exit(EXIT_FAILURE);
+    }
+
+    const int FLAFS = CLONE_FS | SIGCHLD;
     if ((pid_ = clone(&routine_, STACK_ + STACK_SIZE_, FLAFS, arg)) == -1)
     {
         perror("clone");
@@ -238,7 +264,17 @@ Process::map_callbacks_t * Process::mapCallbacks_(Process::map_callbacks_t * map
 
 void Process::initMapCallbacks_(void) noexcept
 {
-    auto mapCallbacks = new map_callbacks_t();
+    map_callbacks_t * mapCallbacks = nullptr;
+
+    try
+    {
+        mapCallbacks = new map_callbacks_t();
+    }
+    catch (std::bad_alloc const& err)
+    {
+        PRINT_ERR(err.what());
+        exit(EXIT_FAILURE);
+    }
 
     std::ifstream input(Process::fileSymSharedLib);
     assert(input.good());
@@ -273,7 +309,17 @@ void Process::initMapCallbacks_(void) noexcept
 
 char* const* Process::makeExecArgv_(argv_t const& argv) const noexcept
 {
-    char const ** argv_ = new char const * [maxArgc + 1];
+    char const ** argv_ = nullptr;
+
+    try
+    {
+        argv_ = new char const * [maxArgc + 1];
+    }
+    catch (std::bad_alloc const& err)
+    {
+        PRINT_ERR(err.what());
+        exit(EXIT_FAILURE);
+    }
 
     for (size_t arg = 0; arg < argv.size(); arg++)
         argv_[arg] = argv[arg].c_str();
@@ -299,34 +345,4 @@ Process::routineArg_::routineArg_(Process * process, callback_t * callback) noex
     assert(process);
     assert(callback);
 }
-
-
-/// Below public namespace function's implementation
-
-Process * process::make_process(std::string const& cmdLine)
-{
-    assert(cmdLine.size() > 0);
-
-    std::stringstream sstream(cmdLine);
-    std::vector<std::string> argv;
-
-    while (!sstream.eof())
-    {
-        std::string token; sstream >> token;
-        argv.push_back(token);
-    }
-
-    Process * process = new Process(argv);
-    return process;
-}
-
-
-
-
-
-
-
-
-
-
 

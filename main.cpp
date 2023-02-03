@@ -1,36 +1,51 @@
 #include <iostream>
-#include <string>
-
-#include "process.hpp"
-#include "ppipe.hpp"
-#include "boolean.hpp"
+#include <sstream>
 #include "shell.hpp"
-
-using namespace std;
-
 
 int main(void)
 {
-    Shell shell;
+    shell::Shell myshell;
 
     while(1)
     {
-        shell.printPreviewMessage();
+        myshell.printPreviewMessage();
 
-        auto smartCmdLine   = shell.getSmartCmdLine();
+        auto smartCmdLine = myshell.getSmartCmdLine();
         const auto& cmdLine = smartCmdLine.getCmdLine();
 
         if (cmdLine == "")
             continue;
-        if (cmdLine == Shell::exitCmd)
+        if (cmdLine == shell::Shell::exitCmd)
             break;
+        if (cmdLine == shell::Shell::jobsCmd)
+        {
+            myshell.jobs();
+            delete &cmdLine;
+            continue;
+        }
 
-        // step2: process cmd or fall to step 1 (if error)
-        // cmdLineAnalyzer
+        if (myshell.isControlFlowCmd())
+        {
+            std::stringstream sstream(cmdLine);
+            std::string cmd; size_t N;
+            sstream >> cmd >> N;
 
-        // step3: execute cmd, pipe, or boolean and wait them (if in foreground)
-        auto cmdProcess     = process::make_process(cmdLine);
-        delete cmdProcess;
+            if (cmd == shell::Shell::fgCmd)
+                myshell.fg(N);
+            else
+                myshell.bg(N);
+        }
+        else
+        {
+            auto typeCmdLine = analyze::analyzeCmdLine(cmdLine);
+            auto taskWrapper = analyze::createTask(cmdLine, typeCmdLine);
+
+            if (!taskWrapper)
+                continue;
+
+            auto [task, isForeground] = *taskWrapper;
+            myshell.addTaskItem({task, isForeground, cmdLine, typeCmdLine});
+        }
     }
 
     return 0;
